@@ -5,6 +5,17 @@ use \Core\Model;
 
 class Photos extends Model {
 
+	public function savePhoto($id_user, $url) {
+
+		$sql = "INSERT INTO photos (id_user, url) VALUES (:id_user, :url)";
+		$sql = $this->db->prepare($sql);
+		$sql->bindValue(':id_user', $id_user);
+		$sql->bindValue(':url', $url);
+		$sql->execute();
+		return true;
+
+	}
+
 	public function getRandomPhotos($per_page, $excludes = array()) {
 		$array = array();
 
