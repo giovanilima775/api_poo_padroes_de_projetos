@@ -4,7 +4,7 @@ namespace Models;
 use \Core\Model;
 use \Models\Jwt;
 use \Models\Photos;
-
+use \Dao\DaoUsers;
 class Users extends Model {
 
 	private $id_user;
@@ -13,12 +13,9 @@ class Users extends Model {
 		if(!$this->emailExists($email)) {
 			$hash = password_hash($pass, PASSWORD_DEFAULT);
 
-			$sql = "INSERT INTO users (name, email, pass) VALUES (:name, :email, :pass)";
-			$sql = $this->db->prepare($sql);
-			$sql->bindValue(':name', $name);
-			$sql->bindValue(':email', $email);
-			$sql->bindValue(':pass', $hash);
-			$sql->execute();
+			$daoUsers = new DaoUsers();
+
+			$daoUsers->createUsers($name, $email, $hash);
 
 			$this->id_user = $this->db->lastInsertId();
 
