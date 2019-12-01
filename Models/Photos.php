@@ -2,19 +2,9 @@
 namespace Models;
 
 use \Core\Model;
+use \Dao\DaoPhotos;
 
 class Photos extends Model {
-
-	public function savePhoto($id_user, $url) {
-
-		$sql = "INSERT INTO photos (id_user, url) VALUES (:id_user, :url)";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id_user', $id_user);
-		$sql->bindValue(':url', $url);
-		$sql->execute();
-		return true;
-
-	}
 
 	public function getRandomPhotos($per_page, $excludes = array()) {
 		$array = array();
@@ -23,13 +13,9 @@ class Photos extends Model {
 			$excludes[$k] = intval($item);
 		}
 
-		if(count($excludes) > 0) {
-			$sql = "SELECT * FROM photos WHERE id NOT IN (".implode(',', $excludes).") ORDER by RAND() LIMIT ".$per_page;
-		} else {
-			$sql = "SELECT * FROM photos ORDER by RAND() LIMIT ".$per_page;
-		}
+		$DaoPhotos = new DaoPhotos();
 
-		$sql = $this->db->query($sql);
+		$sql = $DaoPhotos->getRandomPhotos($per_page, $excludes = array());		
 
 		if($sql->rowCount() > 0) {
 			$array = $sql->fetchAll(\PDO::FETCH_ASSOC);
@@ -48,13 +34,9 @@ class Photos extends Model {
 	public function getPhotosFromUser($id_user, $offset, $per_page) {
 		$array = array();
 
-		$sql = "SELECT * FROM photos WHERE id_user = :id ORDER BY id DESC LIMIT ".$offset.",".$per_page;
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id', $id_user);
-		$sql->execute();
-
-		if($sql->rowCount() > 0) {
-			$array = $sql->fetchAll(\PDO::FETCH_ASSOC);
+		$DaoPhotos = new DaoPhotos();
+		$array = $DaoPhotos->getPhotosFromUser($id_user, $offset, $per_page);
+		if(!empty($array)) {
 
 			foreach($array as $k => $item) {
 				$array[$k]['url'] = BASE_URL.'media/photos/'.$item['url'];
@@ -71,18 +53,12 @@ class Photos extends Model {
 		$array = array();
 		$users = new Users();
 
+		
 		if(count($ids) > 0) {
+			$DaoPhotos = new DaoPhotos();
+			$array = $DaoPhotos->getFeedCollection($ids, $offset, $per_page);
 
-			$sql = "SELECT * FROM photos
-			WHERE id_user IN (".implode(',', $ids).")
-			ORDER by id DESC
-			LIMIT ".$offset.", ".$per_page;
-
-			$sql = $this->db->query($sql);
-
-			if($sql->rowCount() > 0) {
-
-				$array = $sql->fetchAll(\PDO::FETCH_ASSOC);
+			if(!empty($array)) {
 
 				foreach($array as $k => $item) {
 					$user_info = $users->getInfo($item['id_user']);
@@ -108,15 +84,11 @@ class Photos extends Model {
 		$array = array();
 
 		$users = new Users();
+		
+		$DaoPhotos = new DaoPhotos();
+		$array = $DaoPhotos->getPhoto($id_photo);
 
-		$sql = "SELECT * FROM photos WHERE id = :id";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id', $id_photo);
-		$sql->execute();
-
-		if($sql->rowCount() > 0) {
-
-			$array = $sql->fetch(\PDO::FETCH_ASSOC);
+		if(!empty($array)) {
 
 			$user_info = $users->getInfo($array['id_user']);
 
@@ -135,62 +107,34 @@ class Photos extends Model {
 	public function getComments($id_photo) {
 		$array = array();
 
-		$sql = "SELECT photos_comments.*, users.name FROM photos_comments LEFT JOIN users ON users.id = photos_comments.id_user WHERE photos_comments.id_photo = :id";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id', $id_photo);
-		$sql->execute();
-
-		if($sql->rowCount() > 0) {
-			$array = $sql->fetchAll(\PDO::FETCH_ASSOC);
-		}
+		$DaoPhotos = new DaoPhotos();
+		$array = $DaoPhotos->getComments($id_photo);
 
 		return $array;
 	}
 
 	public function getLikeCount($id_photo) {
-		$sql = "SELECT COUNT(*) as c FROM photos_likes WHERE id_photo = :id";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id', $id_photo);
-		$sql->execute();
-		$info = $sql->fetch();
+
+		$DaoPhotos = new DaoPhotos();
+		$info['c'] = $DaoPhotos->getLikeCount($id_photo);
 
 		return $info['c'];
 	}
 
 	public function getPhotosCount($id_user) {
-		$sql = "SELECT COUNT(*) as c FROM photos WHERE id_user = :id";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id', $id_user);
-		$sql->execute();
-		$info = $sql->fetch();
+		$DaoPhotos = new DaoPhotos();
 
+		$info['c'] = $DaoPhotos->getPhotosCount($id_user);
+			
 		return $info['c'];
 	}
 
 	public function deletePhoto($id_photo, $id_user) {
-		$sql = "SELECT id FROM photos WHERE id = :id AND id_user = :id_user";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id', $id_photo);
-		$sql->bindValue(':id_user', $id_user);
-		$sql->execute();
+		$DaoPhotos = new DaoPhotos();
+		
+		$return = $DaoPhotos->deletePhoto($id_photo, $id_user);
 
-		if($sql->rowCount() > 0) {
-
-			$sql = "DELETE FROM photos WHERE id = :id";
-			$sql = $this->db->prepare($sql);
-			$sql->bindValue(':id', $id_photo);
-			$sql->execute();
-
-			$sql = "DELETE FROM photos_comments WHERE id_photo = :id_photo";
-			$sql = $this->db->prepare($sql);
-			$sql->bindValue(':id_photo', $id_photo);
-			$sql->execute();
-
-			$sql = "DELETE FROM photos_likes WHERE id_photo = :id_photo";
-			$sql = $this->db->prepare($sql);
-			$sql->bindValue(':id_photo', $id_photo);
-			$sql->execute();
-
+		if($return == true) {
 			return '';
 
 		} else {
@@ -199,31 +143,17 @@ class Photos extends Model {
 	}
 
 	public function deleteAll($id_user) {
-		$sql = "DELETE FROM photos WHERE id_user = :id_user";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id_user', $id_user);
-		$sql->execute();
-
-		$sql = "DELETE FROM photos_comments WHERE id_user = :id_user";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id_user', $id_user);
-		$sql->execute();
-
-		$sql = "DELETE FROM photos_likes WHERE id_user = :id_user";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id_user', $id_user);
-		$sql->execute();
+		$DaoPhotos = new DaoPhotos();
+		
+		$DaoPhotos-> deleteAll($id_user);
 	}
 
 	public function addComment($id_photo, $id_user, $txt) {
+		$DaoPhotos = new DaoPhotos();
+		
+		$return = $DaoPhotos->addComment($id_photo, $id_user, $txt);
 
-		if(!empty($txt)) {
-			$sql = "INSERT INTO photos_comments (id_user, id_photo, date_comment, txt) VALUES (:id_user, :id_photo, NOW(), :txt)";
-			$sql = $this->db->prepare($sql);
-			$sql->bindValue(':id_user', $id_user);
-			$sql->bindValue(':id_photo', $id_photo);
-			$sql->bindValue(':txt', $txt);
-			$sql->execute();
+		if($return == true) {	
 
 			return '';
 		} else {
@@ -233,19 +163,11 @@ class Photos extends Model {
 	}
 
 	public function deleteComment($id_comment, $id_user) {
-		$sql = "SELECT id FROM photos_comments WHERE id_user = :id_user AND id = :id";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id_user', $id_user);
-		$sql->bindValue(':id', $id_comment);
-		$sql->execute();
+		$DaoPhotos = new DaoPhotos();
+		
+		$return = $DaoPhotos->deleteComment($id_comment, $id_user);
 
-		if($sql->rowCount() > 0) {
-
-			$sql = "DELETE FROM photos_comments WHERE id = :id";
-			$sql = $this->db->prepare($sql);
-			$sql->bindValue(':id', $id_comment);
-			$sql->execute();
-
+		if($return == true) {
 			return '';
 
 		} else {
@@ -254,20 +176,11 @@ class Photos extends Model {
 	}
 
 	public function like($id_photo, $id_user) {
-		$sql = "SELECT * FROM photos_likes WHERE id_user = :id_user AND id_photo = :id_photo";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id_user', $id_user);
-		$sql->bindValue(':id_photo', $id_photo);
-		$sql->execute();
+		$DaoPhotos = new DaoPhotos();
+		
+		$return = $DaoPhotos->like($id_photo, $id_user);
 
-		if($sql->rowCount() == 0) {
-
-			$sql = "INSERT INTO photos_likes (id_user, id_photo) VALUES (:id_user, :id_photo)";
-			$sql = $this->db->prepare($sql);
-			$sql->bindValue(':id_user', $id_user);
-			$sql->bindValue(':id_photo', $id_photo);
-			$sql->execute();
-
+		if($return == true) {
 			return '';
 
 		} else {
@@ -276,12 +189,9 @@ class Photos extends Model {
 	}
 
 	public function unlike($id_photo, $id_user) {
-
-		$sql = "DELETE FROM photos_likes WHERE id_user = :id_user AND id_photo = :id_photo";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id_user', $id_user);
-		$sql->bindValue(':id_photo', $id_photo);
-		$sql->execute();
+		$DaoPhotos = new DaoPhotos();
+		
+		$DaoPhotos->unlike($id_photo, $id_user);
 
 		return '';
 	}

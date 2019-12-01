@@ -170,51 +170,6 @@ class PhotosController extends Controller {
 		$this->returnJson($array);
 	}
 
-	public function new_record() {
-		$array = array();
-		// var_dump($_FILES);
-		if(!empty($_FILES)) {
-			$photos =  new Photos();
-			$users = new Users();
-
-			$temp_name = $_FILES['file']['tmp_name'];
-			$img_name = $_FILES['file']['name'];
-			$upload_dir =  "./media/prints/".$img_name;
-
-			//PEGA O FORMATO DO ARQUIVO
-			$ext = pathinfo($img_name, PATHINFO_EXTENSION);
-			$tipos_arquivos = array('jpg', 'JPG', 'png', 'JPEG', 'gif');
-
-			if(in_array($ext, $tipos_arquivos)) {
-				if(move_uploaded_file($temp_name, $upload_dir)) {
-					$url = BASE_URL."media/prints/".$img_name;
-					//VERIFICAR PORQUE GETID NÃO ESTÁ RETORNANDO A ID
-					$id = $users->getId();
-
-					//TROCAR UM NOVE POR ALGUMA HASH  PARA QUE NÃO TENHA DUPLICAÇÃO NO NOME DO ARQUIVO
-					if($photos->savePhoto(1, $url)) {
-						$array['info'] =  'Salvou no banco de dados';
-					}
-
-				$array['id'] = $id;
-
-				$array['img'] = 'funcionous';
-				$array['url'] = $url;
-				} else {
-					$array['error'] = 'Formato de aquivo inválido';
-				}
-
-			}else {
-				$array['error'] = 'Formato do aquivo inválido';
-			}
-
-
-		}else {
-			$array['error'] = 'Não há arquivos para fazer upload';
-		}
-		$this->returnJson($array);
-	}
-
 }
 
 

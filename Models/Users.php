@@ -2,22 +2,22 @@
 namespace Models;
 
 use \Core\Model;
+use \Dao\DaoUsers;
 use \Models\Jwt;
 use \Models\Photos;
-use \Dao\DaoUsers;
+
 class Users extends Model {
 
 	private $id_user;
 
 	public function create($name, $email, $pass) {
+
 		if(!$this->emailExists($email)) {
 			$hash = password_hash($pass, PASSWORD_DEFAULT);
+			$daoUser = new DaoUsers();
+			$daoUser->createUsers($name, $email, $pass);
 
-			$daoUsers = new DaoUsers();
-
-			$daoUsers->createUsers($name, $email, $hash);
-
-			$this->id_user = $this->db->lastInsertId();
+			$this->id_user = $daoUser->lastId();
 
 			return true;
 		} else {
@@ -27,24 +27,26 @@ class Users extends Model {
 
 	public function checkCredentials($email, $pass) {
 
-		$sql = "SELECT id, pass FROM users WHERE email = :email";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':email', $email);
-		$sql->execute();
+		$daoUser = new DaoUsers();
+		return $daoUser->checkCredentials($email, $pass);
+		// $sql = "SELECT id, pass FROM users WHERE email = :email";
+		// $sql = $this->db->prepare($sql);
+		// $sql->bindValue(':email', $email);
+		// $sql->execute();
 
-		if($sql->rowCount() > 0) {
-			$info = $sql->fetch();
+		// if($sql->rowCount() > 0) {
+		// 	$info = $sql->fetch();
 
-			if(password_verify($pass, $info['pass'])) {
-				$this->id_user = $info['id'];
+		// 	if(password_verify($pass, $info['pass'])) {
+		// 		$this->id_user = $info['id'];
 
-				return true;
-			} else {
-				return false;
-			}
-		} else {
-			return false;
-		}
+		// 		return true;
+		// 	} else {
+		// 		return false;
+		// 	}
+		// } else {
+		// 	return false;
+		// }
 
 	}
 
@@ -55,10 +57,9 @@ class Users extends Model {
 	public function getInfo($id) {
 		$array = array();
 
-		$sql = "SELECT id, name, email, avatar FROM users WHERE id = :id";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id', $id);
-		$sql->execute();
+		$daoUser = new DaoUsers();
+
+		$sql = $daoUser->getInfo($id);
 
 		if($sql->rowCount() > 0) {
 			$array = $sql->fetch(\PDO::FETCH_ASSOC);
@@ -93,14 +94,10 @@ class Users extends Model {
 	public function getFollowing($id_user) {
 		$array = array();
 
-		$sql = "SELECT id_user_passive FROM users_following WHERE id_user_active = :id";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id', $id_user);
-		$sql->execute();
-
-		if($sql->rowCount() > 0) {
-			$data = $sql->fetchAll();
-
+		$daoUser =  new DaoUsers();
+		$data =  $daoUser->getFollowing($id_user);
+		if(!empty($data)) {
+			
 			foreach($data as $item) {
 				$array[] = intval( $item['id_user_passive'] );
 			}
@@ -110,22 +107,20 @@ class Users extends Model {
 	}
 
 	public function getFollowingCount($id_user) {
+
+		$daoUser = new DaoUsers();
+
+		$info['c'] = $daoUser->getFollowingCount($id_user);
 		
-		$sql = "SELECT COUNT(*) as c FROM users_following WHERE id_user_active = :id";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id', $id_user);
-		$sql->execute();
-		$info = $sql->fetch();
-		//$info['c'] = $id_user;
 		return $info['c'];
+		
 	}
 
 	public function getFollowersCount($id_user) {
-		$sql = "SELECT COUNT(*) as c FROM users_following WHERE id_user_passive = :id";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id', $id_user);
-		$sql->execute();
-		$info = $sql->fetch();
+	
+		$daoUser = new DaoUsers();
+
+		$info['c'] = $daoUser->getFollowersCount($id_user);
 
 		return $info['c'];
 	}
@@ -148,16 +143,12 @@ class Users extends Model {
 	}
 
 	private function emailExists($email) {
-		$sql = "SELECT id FROM users WHERE email = :email";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':email', $email);
-		$sql->execute();
 
-		if($sql->rowCount() > 0) {
-			return true;
-		} else {
-			return false;
-		}
+		$daoUsers = new DaoUsers();
+		$return = $daoUsers->verifyEmail($email);		
+		
+		return $return;
+		
 	}
 
 	public function editInfo($id, $data) {
@@ -191,15 +182,9 @@ class Users extends Model {
 					$fields[] = $key.' = :'.$key;
 				}
 
-				$sql = "UPDATE users SET ".implode(',', $fields)." WHERE id = :id";
-				$sql = $this->db->prepare($sql);
-				$sql->bindValue(':id', $id);
+				$daoUsers = new DaoUsers();
+				$daoUsers->editInfo($id, $data, $toChange,  $fields);
 
-				foreach($toChange as $key => $value) {
-					$sql->bindValue(':'.$key, $value);
-				}
-
-				$sql->execute();
 				return '';
 
 			} else {
@@ -220,15 +205,8 @@ class Users extends Model {
 			$p = new Photos();
 			$p->deleteAll($id);
 
-			$sql = "DELETE FROM users_following WHERE id_user_active = :id OR id_user_passive = :id";
-			$sql = $this->db->prepare($sql);
-			$sql->bindValue(':id', $id);
-			$sql->execute();
-
-			$sql = "DELETE FROM users WHERE id = :id";
-			$sql = $this->db->prepare($sql);
-			$sql->bindValue(':id', $id);
-			$sql->execute();
+			$daoUsers = new DaoUsers();
+			$daoUsers->delete($id);
 
 			return '';
 
@@ -240,34 +218,15 @@ class Users extends Model {
 
 	public function follow($id_user) {
 
-		$sql = "SELECT * FROM users_following WHERE id_user_active = :id_user_active AND id_user_passive = :id_user_passive";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id_user_active', $this->getId());
-		$sql->bindValue(':id_user_passive', $id_user);
-		$sql->execute();
-
-		if($sql->rowCount() === 0) {
-
-			$sql = "INSERT INTO users_following (id_user_active, id_user_passive) VALUES (:id_user_active, :id_user_passive)";
-			$sql = $this->db->prepare($sql);
-			$sql->bindValue(':id_user_active', $this->getId());
-			$sql->bindValue(':id_user_passive', $id_user);
-			$sql->execute();
-
-			return true;
-		} else {
-			return false;
-		}
+		$daoUsers = new DaoUsers();
+		return $daoUsers->follow($id_user);
 
 	}
 
 	public function unfollow($id_user) {
 
-		$sql = "DELETE FROM users_following WHERE id_user_active = :id_user_active AND id_user_passive = :id_user_passive";
-		$sql = $this->db->prepare($sql);
-		$sql->bindValue(':id_user_active', $this->getId());
-		$sql->bindValue(':id_user_passive', $id_user);
-		$sql->execute();
+		$daoUsers = new DaoUsers();
+		$daoUsers->unfollow($id_user);
 
 	}
 

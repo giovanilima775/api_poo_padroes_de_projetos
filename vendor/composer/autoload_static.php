@@ -11,6 +11,10 @@ class ComposerStaticInit373d959e0d9ba00bdd0bfdb7568f2831
         array (
             'Models\\' => 7,
         ),
+        'D' => 
+        array (
+            'Dao\\' => 4,
+        ),
         'C' => 
         array (
             'Core\\' => 5,
@@ -22,6 +26,10 @@ class ComposerStaticInit373d959e0d9ba00bdd0bfdb7568f2831
         'Models\\' => 
         array (
             0 => __DIR__ . '/../..' . '/Models',
+        ),
+        'Dao\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/Dao',
         ),
         'Core\\' => 
         array (
